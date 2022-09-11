@@ -26,7 +26,7 @@ func (ds *DNSSolver) Start(p net.PacketConn, challenge acme.Challenge) error {
 	log.Debug("ACME DNS-Server starts")
 	ds.m.Lock()
 	ds.server = &dns.Server{PacketConn: p, Net: "udp", Handler: dns.HandlerFunc(func(w dns.ResponseWriter, r *dns.Msg) {
-		acme_request := true
+		acmeRequest := true
 		state := request.Request{W: w, Req: r}
 
 		log.Debugf("Received DNS request | name: %s, type: %s, source ip: %s \n", state.Name(), state.Type(), state.IP())
@@ -41,14 +41,14 @@ func (ds *DNSSolver) Start(p net.PacketConn, challenge acme.Challenge) error {
 		}
 
 		if state.QType() != dns.TypeTXT {
-			acme_request = false
+			acmeRequest = false
 		}
 
 		if !checkDNSChallenge(state.Name()) {
-			acme_request = false
+			acmeRequest = false
 		}
 
-		if acme_request {
+		if acmeRequest {
 			log.Info("Answering ACME DNS request:", state.Name())
 			hdr := dns.RR_Header{Name: state.QName(), Rrtype: dns.TypeTXT, Class: dns.ClassANY, Ttl: 0}
 			m.Answer = append(m.Answer, &dns.TXT{Hdr: hdr, Txt: []string{challenge.DNS01KeyAuthorization()}})
@@ -119,8 +119,8 @@ func (ds *DNSSolver) Wait(ctx context.Context, challenge acme.Challenge) error {
 
 // CleanUp is called after a challenge is finished, whether
 // successful or not. It stops the dns.server that we started in Present()
-func (d *DNSSolver) CleanUp(ctx context.Context, challenge acme.Challenge) error {
-	err := d.ShutDown()
+func (ds *DNSSolver) CleanUp(ctx context.Context, challenge acme.Challenge) error {
+	err := ds.ShutDown()
 	if err != nil {
 		log.Errorf("Failed to Shutdown the ACME DNS-Server: %v \n", err)
 	}

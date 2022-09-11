@@ -136,9 +136,9 @@ func parseTLS(c *caddy.Controller) error {
 				log.Errorf("Failed to add the custom CA certfiicate to the pool of trusted certificates: %v, \n", err)
 			}
 			solver := newDNSSolver(port)
-			certmagicConfig := NewConfig(certPath)
-			certmagicIssuer := NewIssuer(certmagicConfig, ca, email, pool, solver)
-			certManager := NewCertManager(domainNameACME, certmagicConfig, certmagicIssuer)
+			certmagicConfig := newConfig(certPath)
+			certmagicIssuer := newIssuer(certmagicConfig, ca, email, pool, solver)
+			certManager := newCertManager(domainNameACME, certmagicConfig, certmagicIssuer)
 
 			var names []string
 			names = append(names, certManager.Zone)

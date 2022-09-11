@@ -20,7 +20,7 @@ type CertManager struct {
 	Zone   string
 }
 
-func NewConfig(path string) *certmagic.Config {
+func newConfig(path string) *certmagic.Config {
 	acmeConfigTemplate := certmagic.NewDefault()
 	acmeConfigTemplate.RenewalWindowRatio = 0.7
 	acmeConfigTemplate.Storage = &certmagic.FileStorage{
@@ -44,7 +44,7 @@ func newDNSSolver(port int) *DNSSolver {
 	return solver
 }
 
-func NewIssuer(config *certmagic.Config, ca string, email string, pool *x509.CertPool, solver *DNSSolver) *certmagic.ACMEIssuer {
+func newIssuer(config *certmagic.Config, ca string, email string, pool *x509.CertPool, solver *DNSSolver) *certmagic.ACMEIssuer {
 	certmagic.DefaultACME.Email = "test@test.com"
 	acmeIssuerTemplate := certmagic.ACMEIssuer{
 		Agreed:                  true,
@@ -88,7 +88,7 @@ func setupCertPool(caCert string) (*x509.CertPool, error) {
 }
 
 // NewACMEManager create a new ACMEManager
-func NewCertManager(zone string, config *certmagic.Config, issuer *certmagic.ACMEIssuer) *CertManager {
+func newCertManager(zone string, config *certmagic.Config, issuer *certmagic.ACMEIssuer) *CertManager {
 	return &CertManager{
 		Config: config,
 		Issuer: issuer,
@@ -107,11 +107,11 @@ func (c *CertManager) configureTLSwithACME(ctx context.Context) (*tls.Config, *c
 		if !errors.Is(err, fs.ErrNotExist) {
 			return nil, nil, err
 		}
-		err = c.GetCert(c.Zone)
+		err = c.getCert(c.Zone)
 		if err != nil {
 			return nil, nil, err
 		}
-		cert, err = c.CacheCertificate(ctx, c.Zone)
+		cert, err = c.cacheCertificate(ctx, c.Zone)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -121,12 +121,12 @@ func (c *CertManager) configureTLSwithACME(ctx context.Context) (*tls.Config, *c
 	if cert.NeedsRenewal(c.Config) {
 		log.Info("Renewing TLS Certificate")
 		var err error
-		err = c.RenewCert(ctx, c.Zone)
+		err = c.renewCert(ctx, c.Zone)
 		if err != nil {
 			return nil, nil, fmt.Errorf("%s: renewing certificate: %w", c.Zone, err)
 		}
 		// successful renewal, so update in-memory cache
-		cert, err = c.CacheCertificate(ctx, c.Zone)
+		cert, err = c.cacheCertificate(ctx, c.Zone)
 		if err != nil {
 			return nil, nil, fmt.Errorf("%s: reloading renewed certificate into memory: %v", c.Zone, err)
 		}
@@ -145,17 +145,17 @@ func (c *CertManager) configureTLSwithACME(ctx context.Context) (*tls.Config, *c
 	return tlsConfig, &cert, nil
 }
 
-func (c *CertManager) GetCert(zone string) error {
+func (c *CertManager) getCert(zone string) error {
 	err := c.Config.ObtainCertSync(context.Background(), zone)
 	return err
 }
 
-func (c *CertManager) RenewCert(ctx context.Context, zone string) error {
+func (c *CertManager) renewCert(ctx context.Context, zone string) error {
 	err := c.Config.RenewCertSync(ctx, zone, false)
 	return err
 }
 
-func (c *CertManager) CacheCertificate(ctx context.Context, zone string) (certmagic.Certificate, error) {
+func (c *CertManager) cacheCertificate(ctx context.Context, zone string) (certmagic.Certificate, error) {
 	cert, err := c.Config.CacheManagedCertificate(ctx, zone)
 	return cert, err
 }
