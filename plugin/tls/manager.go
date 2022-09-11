@@ -14,6 +14,7 @@ import (
 	"github.com/caddyserver/certmagic"
 )
 
+// CertManager takes care of obtaining and renewing TLS certificates
 type CertManager struct {
 	Config *certmagic.Config
 	Issuer *certmagic.ACMEIssuer
@@ -87,7 +88,6 @@ func setupCertPool(caCert string) (*x509.CertPool, error) {
 	return pool, nil
 }
 
-// NewACMEManager create a new ACMEManager
 func newCertManager(zone string, config *certmagic.Config, issuer *certmagic.ACMEIssuer) *CertManager {
 	return &CertManager{
 		Config: config,
