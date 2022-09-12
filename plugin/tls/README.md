@@ -99,12 +99,22 @@ tls acme {
 ~~~
 
 By default the plugin saves certificates obtained via acme in `$HOME/.local/share/certmagic`. This can be overwritten
-by setting `certpath`
+by setting `certpath`.
 
 ~~~ txt
 tls acme {
     domain example.com
     certpath /etc/coredns
+}
+~~~
+
+If you intend to use multiple CoreDNS servers in a cluster setup `certpath` should be set to some kind of shared storage, such as NFS, 
+that all participating servers of the cluster can access.
+
+~~~ txt
+tls acme {
+    domain example.com
+    certpath /some/path/on/nfs
 }
 ~~~
 
@@ -119,6 +129,38 @@ tls acme {
 ~~~
 
 ### Examples
+
+Start an (authoritative) DNS server for exmaple.com. This server, if setup correctly, will automatically obtain a certificate for `ns1.example.com`.
+It will also renew this certificate before it can expire. This server provides answers for example.com over both, DoH and DoT.
+
+~~~ txt
+tls://example.com {
+    tls acme {
+        domain ns1.example.com
+    }
+    hosts {
+        xxx.xxx.xxx.xxx example.com
+        xxx.xxx.xxx.xxx ns1.example.com
+    }
+}
+
+https://example.com {
+    tls acme {
+        domain ns1.example.com
+    }
+    hosts {
+        xxx.xxx.xxx.xxx example.com
+        xxx.xxx.xxx.xxx ns1.example.com
+    }
+}
+
+example.com {
+    hosts {
+        xxx.xxx.xxx.xxx example.com
+        xxx.xxx.xxx.xxx ns1.example.com
+    }
+}
+~~~
 
 ## See Also
 
