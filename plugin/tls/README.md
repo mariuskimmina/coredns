@@ -16,7 +16,12 @@ DNS-over-TLS and DNS-over-gRPC. If the *tls* plugin is omitted, then no encrypti
 The gRPC protobuffer is defined in `pb/dns.proto`. It defines the proto as a simple wrapper for the
 wire data of a DNS message.
 
-## Syntax
+Furthermore, if CoreDNS is setup as the authoritative DNS server for a domain, obtaining and renewing
+certificates can be fully automated using the ACME protocol.
+
+## Manual Usage
+
+### Syntax
 
 ~~~ txt
 tls CERT KEY [CA]
@@ -35,7 +40,9 @@ The option value corresponds to the [ClientAuthType values of the Go tls package
 The default is "nocert".  Note that it makes no sense to specify parameter CA unless this option is
 set to verify\_if\_given or require\_and\_verify.
 
-## Examples
+
+
+### Examples 
 
 Start a DNS-over-TLS server that picks up incoming DNS-over-TLS queries on port 5553 and uses the
 nameservers defined in `/etc/resolv.conf` to resolve the query. This proxy path uses plain old DNS.
@@ -67,6 +74,51 @@ https://. {
 
 Only Knot DNS' `kdig` supports DNS-over-TLS queries, no command line client supports gRPC making
 debugging these transports harder than it should be.
+
+
+## Automated usage
+
+### Syntax 
+
+The only mandatory option is `domain`, which is the domain name that a certificate should be obtained for.
+
+~~~ txt
+tls acme {
+    domain example.com
+}
+~~~
+
+It is recommended to also provide an email address, so that you receiv notifications in case something went wrong
+and your certificate is about to expire.
+
+~~~ txt
+tls acme {
+    domain example.com
+    email mail@example.com
+}
+~~~
+
+By default the plugin saves certificates obtained via acme in `$HOME/.local/share/certmagic`. This can be overwritten
+by setting `certpath`
+
+~~~ txt
+tls acme {
+    domain example.com
+    certpath /etc/coredns
+}
+~~~
+
+By default the plugin will perform a validity check on the certificate every 15 minutes. This can be overwritten 
+by setting `checkinterval`
+
+~~~ txt
+tls acme {
+    domain example.com
+    checkinterval 20
+}
+~~~
+
+### Examples
 
 ## See Also
 
