@@ -8,14 +8,12 @@ import (
 	"time"
 
 	ctls "crypto/tls"
+	clog "github.com/coredns/coredns/plugin/pkg/log"
 
 	"github.com/caddyserver/certmagic"
 	"github.com/coredns/caddy"
 	"github.com/coredns/coredns/core/dnsserver"
 	"github.com/coredns/coredns/plugin"
-
-	//"github.com/coredns/coredns/plugin/pkg/log"
-	clog "github.com/coredns/coredns/plugin/pkg/log"
 	"github.com/coredns/coredns/plugin/pkg/tls"
 )
 
