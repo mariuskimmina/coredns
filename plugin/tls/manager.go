@@ -2,12 +2,12 @@ package tls
 
 import (
 	"context"
-	"errors"
-	"io/fs"
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/pem"
+	"errors"
 	"fmt"
+	"io/fs"
 	"os"
 
 	"github.com/caddyserver/certmagic"
