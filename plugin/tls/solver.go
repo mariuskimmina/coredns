@@ -70,7 +70,6 @@ func (ds *DNSSolver) ShutDown() error {
 
 const (
 	dnsChallengeString = "_acme-challenge."
-	pluginName         = "tlsplus"
 )
 
 // check for the prefix _acme-challenge
