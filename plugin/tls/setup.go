@@ -138,9 +138,6 @@ func parseTLS(c *caddy.Controller) error {
 			certmagicIssuer := newIssuer(certmagicConfig, ca, email, pool, solver)
 			certManager := newCertManager(domainNameACME, certmagicConfig, certmagicIssuer)
 
-			var names []string
-			names = append(names, certManager.Zone)
-
 			tlsconf, cert, err = certManager.configureTLSwithACME(ctx)
 			if err != nil {
 				log.Errorf("Failed to setup TLS automatically: %v \n", err)
