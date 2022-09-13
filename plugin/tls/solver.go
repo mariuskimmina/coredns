@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/coredns/coredns/request"
+
 	"github.com/mholt/acmez/acme"
 	"github.com/miekg/dns"
 )
