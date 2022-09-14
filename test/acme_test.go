@@ -66,7 +66,7 @@ func TestObtainCertOnStartup(t *testing.T) {
 		},
 	}
 	go func() {
-		PebbleServer(resolverAddress, pebbleTestConfig, pebbleStrictMode)
+		pebbleServer(resolverAddress, pebbleTestConfig, pebbleStrictMode)
 	}()
 	for _, tc := range testcases {
 		t.Run(tc.name, func(t *testing.T) {

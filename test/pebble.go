@@ -32,7 +32,7 @@ type config struct {
 	}
 }
 
-func PebbleServer(resolverAddress string, configFile string, strictMode bool) {
+func pebbleServer(resolverAddress string, configFile string, strictMode bool) {
 	// Log to stdout
 	logger := log.New(os.Stdout, "Pebble ", log.LstdFlags)
 	logger.Printf("Starting Pebble ACME server")
