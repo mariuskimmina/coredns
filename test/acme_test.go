@@ -31,7 +31,7 @@ func TestObtainCertOnStartup(t *testing.T) {
 			config: `tls://.:1053 {
                 tls acme {
                     domain example.com
-                    ca     localhost:14000/dir
+                    ca     localhost:14963/dir
                     certpath /tmp/certmagic/
                     cacert test/certs/pebble.minica.pem
                     port 1053
@@ -50,7 +50,7 @@ func TestObtainCertOnStartup(t *testing.T) {
 			config: `tls://.:1053 {
                 tls acme {
                     domain example.com
-                    ca     localhost:14000/dir
+                    ca     localhost:14963/dir
                     certpath /tmp/certmagic/
                     cacert test/certs/pebble.minica.pem
                     port 1053
