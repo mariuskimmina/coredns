@@ -3,7 +3,6 @@ package tls
 import (
 	"context"
 	ctls "crypto/tls"
-	"os"
 	"strconv"
 	"sync"
 	"time"
@@ -38,7 +37,7 @@ const (
 	defaultEmail         = "doesnotexist@test.com"
 	defaultCheckInterval = 15
 	defaultPort          = 53
-	defaultCertPath      = "./local/share/certmagic"
+	defaultCertPath      = "./.tls/"
 )
 
 func parseTLS(c *caddy.Controller) error {
@@ -66,11 +65,7 @@ func parseTLS(c *caddy.Controller) error {
 			email := defaultEmail
 			ca := defaultCA
 			checkInterval := defaultCheckInterval
-			userHome, homeExists := os.LookupEnv("HOME")
-			if !homeExists {
-				log.Error("Environment Variable $HOME needs to be set.")
-			}
-			certPath := userHome + defaultCertPath
+			certPath := defaultCertPath
 
 			for c.NextBlock() {
 				token := c.Val()

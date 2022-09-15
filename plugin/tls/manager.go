@@ -45,7 +45,7 @@ func newDNSSolver(port int) *DNSSolver {
 }
 
 func newIssuer(config *certmagic.Config, ca string, email string, pool *x509.CertPool, solver *DNSSolver) *certmagic.ACMEIssuer {
-	certmagic.DefaultACME.Email = "test@test.com"
+	certmagic.DefaultACME.Email = email
 	acmeIssuerTemplate := certmagic.ACMEIssuer{
 		Agreed:                  true,
 		DisableHTTPChallenge:    true,
