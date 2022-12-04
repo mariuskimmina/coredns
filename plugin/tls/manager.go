@@ -35,15 +35,6 @@ func newConfig(path string) *certmagic.Config {
 	return acmeConfig
 }
 
-func newDNSSolver(port int) *DNSSolver {
-	readyChan := make(chan string)
-	solver := &DNSSolver{
-		Port:      port,
-		readyChan: readyChan,
-	}
-	return solver
-}
-
 func newIssuer(config *certmagic.Config, ca string, email string, pool *x509.CertPool, solver *DNSSolver) *certmagic.ACMEIssuer {
 	certmagic.DefaultACME.Email = email
 	acmeIssuerTemplate := certmagic.ACMEIssuer{
@@ -100,13 +91,13 @@ func (c *CertManager) configureTLSwithACME(ctx context.Context) (*tls.Config, *c
 	var err error
 
 	// try loading existing certificate
-	cert, err = c.Config.CacheManagedCertificate(ctx, c.Zone)
+	cert, err = c.cacheCertificate(ctx, c.Zone)
 	if err != nil {
 		log.Info("Obtaining TLS Certificate, may take a moment")
 		if !errors.Is(err, fs.ErrNotExist) {
 			return nil, nil, err
 		}
-		err = c.getCert(c.Zone)
+		err = c.obtainCert(c.Zone)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -136,7 +127,6 @@ func (c *CertManager) configureTLSwithACME(ctx context.Context) (*tls.Config, *c
 		log.Error("Failed to renew certificate")
 	}
 
-	//tlsConfig := acmeManager.Config.TLSConfig()
 	tlsConfig := &tls.Config{Certificates: []tls.Certificate{cert.Certificate}}
 	tlsConfig.ClientAuth = tls.NoClientCert
 	tlsConfig.ClientCAs = tlsConfig.RootCAs
@@ -144,7 +134,7 @@ func (c *CertManager) configureTLSwithACME(ctx context.Context) (*tls.Config, *c
 	return tlsConfig, &cert, nil
 }
 
-func (c *CertManager) getCert(zone string) error {
+func (c *CertManager) obtainCert(zone string) error {
 	err := c.Config.ObtainCertSync(context.Background(), zone)
 	return err
 }

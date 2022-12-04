@@ -21,6 +21,15 @@ type DNSSolver struct {
 	readyChan chan string
 }
 
+func newDNSSolver(port int) *DNSSolver {
+	readyChan := make(chan string)
+	solver := &DNSSolver{
+		Port:      port,
+		readyChan: readyChan,
+	}
+	return solver
+}
+
 // Start starts a dns.Server that can solve the ACME Challenge, which means it answer on TXT requests
 // that start with _acme-challenge - this server will ignore all other requests
 func (ds *DNSSolver) Start(p net.PacketConn, challenge acme.Challenge) error {

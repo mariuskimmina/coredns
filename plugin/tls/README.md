@@ -68,6 +68,59 @@ https://. {
 Only Knot DNS' `kdig` supports DNS-over-TLS queries, no command line client supports gRPC making
 debugging these transports harder than it should be.
 
+## ACME Syntax
+
+When CoreDNS is the authoritative DNS Server for a domain, it can automatically obtain and renew it's own certificates.
+
+~~~ txt
+tls acme {
+    domain DOMAIN
+}
+~~~
+
+Optional arguments are: ca, email, certpath, checkinterval
+
+~~~ txt
+tls acme {
+    domain DOMAIN
+    ca URL
+    email EMAIL 
+    certpath PATH
+    checkinterval MINUTES
+}
+~~~
+
+The arguments `port` and `cacert` can also be used for testing purposes. For use with an offical CA, such as Let's Encrypt, setting a port other than 53 will cause the challenge to fail.
+
+
+
+## ACME Examples
+
+The only mandatory argument is domain.
+
+~~~ txt
+tls acme {
+    domain example.com
+}
+~~~
+
+In the above configuration CoreDNS attepmpts to obtain a certificate for `example.com` from Let's Encrypt.
+Let's Encrypt will send DNS requests for `_acme-challenge.example.com` which get answered by CoreDNS, verifying ownership over the domain.
+
+The same protocol can also be used with a different CA by setting the `ca` parameter.
+It is also strongly recommended to provide a valid email address for production use cases. So that you receiv notifications of your certificate expiring, should anything have gone wrong.
+
+~~~ txt
+tls acme {
+    domain example.com
+    ca https://acme-v02.api.letsencrypt.org/directory
+    email someone@example.com
+    certpath /where/coredns/stores/certs
+    checkinterval 15
+}
+~~~
+
+
 ## See Also
 
 RFC 7858 and https://grpc.io.
