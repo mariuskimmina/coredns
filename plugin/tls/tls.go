@@ -57,7 +57,7 @@ func parseTLS(c *caddy.Controller) error {
 				return c.Errf("unknown option '%s'", c.Val())
 			}
 		}
-		tls, err := tls.NewTLSConfigFromArgs(args...)
+		tls, err := tls.NewTLSConfigFromArgs(config.Root, args...)
 		if err != nil {
 			return err
 		}
