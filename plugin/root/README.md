@@ -8,7 +8,8 @@
 
 The default root is the current working directory of CoreDNS. The *root* plugin allows you to change
 this. A relative root path is relative to the current working directory. 
-The *root* directory is currently supported by the following plugins:
+**NOTE: The *root* directory is NOT currently supported by all plugins.** 
+Currently the following plugins respect the *root* plugin configuration:
 
 * file
 * tls
@@ -43,3 +44,11 @@ tls://example.com:853 {
     whoami
 }
 ~~~
+
+## Bugs
+
+**NOTE: The *root* directory is NOT currently supported by all plugins.** 
+Currently the following plugins respect the *root* plugin configuration:
+
+* file
+* tls
