@@ -2,7 +2,6 @@ package tls
 
 import (
 	ctls "crypto/tls"
-	"fmt"
 	"strconv"
 	"sync"
 	"time"
@@ -17,6 +16,7 @@ import (
 	"github.com/coredns/coredns/plugin"
 	clog "github.com/coredns/coredns/plugin/pkg/log"
 	"github.com/coredns/coredns/plugin/pkg/tls"
+	"github.com/coredns/coredns/plugin/tls/acme"
 
 	"github.com/go-acme/lego/v4/certcrypto"
 	"github.com/go-acme/lego/v4/certificate"
@@ -39,6 +39,7 @@ func setup(c *caddy.Controller) error {
 
 var (
 	log            = clog.NewWithPlugin("tls")
+	r              = renewCert{quit: make(chan bool), renew: make(chan bool)}
 	once, shutOnce sync.Once
 )
 
@@ -59,14 +60,6 @@ func (u *MyUser) GetPrivateKey() crypto.PrivateKey {
 	return u.key
 }
 
-const (
-	defaultCA            = "https://acme-v02.api.letsencrypt.org/directory"
-	defaultEmail         = "doesnotexist@test.com"
-	defaultCheckInterval = 15
-	defaultPort          = 53
-	defaultCertPath      = "./.tls/"
-)
-
 func parseTLS(c *caddy.Controller) error {
 	config := dnsserver.GetConfig(c)
 
@@ -86,9 +79,10 @@ func parseTLS(c *caddy.Controller) error {
 			var email string
 			var dnsProvider string
 			delayBeforeCheck := 0
+			certificatesDuration := 3 * 30 * 24 // 90 Days
 			resolvers := []string{"1.1.1.1:53", "8.8.8.8:53"}
 			disablePropagationCheck := false
-			//preferredChain := "ISRG Root X1"
+			//preferredChain := "(STAGING) Pretend Pear X1"
 			caServer := lego.LEDirectoryStaging
 
 			for c.NextBlock() {
@@ -136,9 +130,28 @@ func parseTLS(c *caddy.Controller) error {
 						return plugin.Error("tls", c.Errf("Too many arguments to caServer"))
 					}
 					caServer = caServerArgs[0]
+				case "certificatesDuration":
+					certificatesDurationArgs := c.RemainingArgs()
+					if len(certificatesDurationArgs) > 1 {
+						return plugin.Error("tls", c.Errf("Too many arguments to certificatesDurationArgs"))
+					}
+
+					certificatesDurationNumber, err := strconv.Atoi(certificatesDurationArgs[0])
+					if err != nil {
+						return plugin.Error("tls", c.Errf("certificatesDuration has to be a number"))
+					}
+					certificatesDuration = certificatesDurationNumber
 				default:
 					return c.Errf("unknown argument to acme '%s'", token)
 				}
+			}
+
+			acmeManager := acme.Manager{}
+			acmeManager.Start()
+
+			pool, err := setupCertPool(caCert)
+			if err != nil {
+				log.Errorf("Failed to add the custom CA certfiicate to the pool of trusted certificates: %v, \n", err)
 			}
 
 			privateKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
@@ -151,14 +164,13 @@ func parseTLS(c *caddy.Controller) error {
 				key:   privateKey,
 			}
 
-			config := lego.NewConfig(&myUser)
+			legoConfig := lego.NewConfig(&myUser)
 
-			// This CA URL is configured for a local dev instance of Boulder running in Docker in a VM.
-			config.CADirURL = caServer
-			config.Certificate.KeyType = certcrypto.RSA2048
+			legoConfig.CADirURL = caServer
+			legoConfig.Certificate.KeyType = certcrypto.RSA2048
 
 			// A client facilitates communication with the CA server.
-			client, err := lego.NewClient(config)
+			client, err := lego.NewClient(legoConfig)
 			if err != nil {
 				log.Fatal(err)
 			}
@@ -198,6 +210,7 @@ func parseTLS(c *caddy.Controller) error {
 			request := certificate.ObtainRequest{
 				Domains: []string{"coredns-acme.xyz"},
 				Bundle:  true,
+				//PreferredChain: preferredChain,
 			}
 
 			certificates, err := client.Certificate.Obtain(request)
@@ -205,12 +218,46 @@ func parseTLS(c *caddy.Controller) error {
 				log.Fatal(err)
 			}
 
-			// Each certificate comes back with the cert bytes, the bytes of the client's
-			// private key, and a certificate URL. SAVE THESE TO DISK.
-			fmt.Printf("%#v\n", certificates)
+			//cert, err := x509.ParseCertificate(certificates.Certificate)
+			//if err != nil {
+			//log.Fatal(err)
+			//}
 
-			//config.TLSConfig = tlsconf
+			tlsCerts := []ctls.Certificate{}
+			tlsCert := ctls.Certificate{
+				Certificate: [][]byte{certificates.Certificate},
+			}
 
+			tlsCerts = append(tlsCerts, tlsCert)
+
+			tlsConfig := &ctls.Config{
+				Certificates: tlsCerts,
+			}
+
+			config.TLSConfig = tlsConfig
+
+			_, renewInterval := acme.GetCertificateRenewDurations(certificatesDuration)
+			once.Do(func() {
+				// start a loop that checks for renewals
+				go func() {
+					log.Debug("Starting certificate renewal loop in the background")
+					for {
+						time.Sleep(time.Duration(renewInterval) * time.Minute)
+						if cert.NeedsRenewal(certManager.Config) {
+							log.Info("Certificate expiring soon, initializing reload")
+							r.renew <- true
+						}
+					}
+				}()
+				caddy.RegisterEventHook("updateCert", hook)
+			})
+			shutOnce.Do(func() {
+				c.OnFinalShutdown(func() error {
+					log.Debug("Quiting renewal checker")
+					r.quit <- true
+					return nil
+				})
+			})
 		} else {
 			//No ACME part - plugin continues to work like the normal tls plugin
 			if len(args) < 2 || len(args) > 3 {
