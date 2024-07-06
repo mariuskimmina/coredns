@@ -1,15 +1,13 @@
 package tls
 
 import (
+	"context"
+	"crypto"
 	ctls "crypto/tls"
+	"fmt"
 	"strconv"
 	"sync"
 	"time"
-
-	"crypto"
-	"crypto/ecdsa"
-	"crypto/elliptic"
-	"crypto/rand"
 
 	"github.com/coredns/caddy"
 	"github.com/coredns/coredns/core/dnsserver"
@@ -18,12 +16,7 @@ import (
 	"github.com/coredns/coredns/plugin/pkg/tls"
 	"github.com/coredns/coredns/plugin/tls/acme"
 
-	"github.com/go-acme/lego/v4/certcrypto"
-	"github.com/go-acme/lego/v4/certificate"
-	"github.com/go-acme/lego/v4/challenge"
-	"github.com/go-acme/lego/v4/challenge/dns01"
 	"github.com/go-acme/lego/v4/lego"
-	"github.com/go-acme/lego/v4/providers/dns"
 	"github.com/go-acme/lego/v4/registration"
 )
 
@@ -78,11 +71,11 @@ func parseTLS(c *caddy.Controller) error {
 
 			var email string
 			var dnsProvider string
-			delayBeforeCheck := 0
+			delayBeforeCheck := acme.Duration(0)
 			certificatesDuration := 3 * 30 * 24 // 90 Days
 			resolvers := []string{"1.1.1.1:53", "8.8.8.8:53"}
 			disablePropagationCheck := false
-			//preferredChain := "(STAGING) Pretend Pear X1"
+			preferredChain := "(STAGING) Pretend Pear X1"
 			caServer := lego.LEDirectoryStaging
 
 			for c.NextBlock() {
@@ -105,7 +98,8 @@ func parseTLS(c *caddy.Controller) error {
 					if len(delayBeforeCheckArgs) > 1 {
 						return plugin.Error("tls", c.Errf("Too many arguments to delayBeforeCheck"))
 					}
-					delayBeforeCheck, err = strconv.Atoi(delayBeforeCheckArgs[0])
+					delayBeforeCheckValue, err := strconv.Atoi(delayBeforeCheckArgs[0])
+					delayBeforeCheck = acme.Duration(delayBeforeCheckValue)
 					if err != nil {
 						return plugin.Error("tls", c.Errf("delayBeforeCheck needs to be a number"))
 					}
@@ -146,111 +140,168 @@ func parseTLS(c *caddy.Controller) error {
 				}
 			}
 
-			acmeManager := acme.Manager{}
-			acmeManager.Start()
+			fileStore := acme.NewLocalStore("storagefile")
 
-			pool, err := setupCertPool(caCert)
+			acmeManager := acme.AcmeManager{
+				Store: fileStore,
+				//DnsServerConfig: config,
+				Configuration: &acme.Configuration{
+					Email:                email,
+					CAServer:             caServer,
+					PreferredChain:       preferredChain,
+					CertificatesDuration: certificatesDuration,
+					Storage:              "acme.json",
+					KeyType:              "RSA4096",
+					DNSChallenge: &acme.DNSChallenge{
+						DelayBeforeCheck:        delayBeforeCheck,
+						Provider:                dnsProvider,
+						Resolvers:               resolvers,
+						DisablePropagationCheck: disablePropagationCheck,
+					},
+				},
+			}
+
+			err := acmeManager.Init()
 			if err != nil {
-				log.Errorf("Failed to add the custom CA certfiicate to the pool of trusted certificates: %v, \n", err)
+				log.Error("Error initializing acme manager", err)
 			}
 
-			privateKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
-			if err != nil {
-				log.Fatal(err)
-			}
+			configChan := make(chan *acme.TLSConfiguration)
+			ctx := context.Background()
 
-			myUser := MyUser{
-				Email: email,
-				key:   privateKey,
-			}
-
-			legoConfig := lego.NewConfig(&myUser)
-
-			legoConfig.CADirURL = caServer
-			legoConfig.Certificate.KeyType = certcrypto.RSA2048
-
-			// A client facilitates communication with the CA server.
-			client, err := lego.NewClient(legoConfig)
-			if err != nil {
-				log.Fatal(err)
-			}
-
-			var provider challenge.Provider
-			provider, err = dns.NewDNSChallengeProviderByName(dnsProvider)
-			if err != nil {
-				return err
-			}
-
-			err = client.Challenge.SetDNS01Provider(provider,
-				dns01.CondOption(len(resolvers) > 0, dns01.AddRecursiveNameservers(resolvers)),
-				dns01.WrapPreCheck(func(domain, fqdn, value string, check dns01.PreCheckFunc) (bool, error) {
-					if delayBeforeCheck > 0 {
-						//log.Debug().Msgf("Delaying %d rather than validating DNS propagation now.", delayBeforeCheck)
-						time.Sleep(time.Duration(delayBeforeCheck))
+			go func(ctx context.Context) {
+				for {
+					select {
+					case <-ctx.Done():
+						return
+					case msg := <-configChan:
+						fmt.Println("msg", msg)
+						configChan <- msg
+						time.Sleep(10)
 					}
-
-					if disablePropagationCheck {
-						return true, nil
-					}
-
-					return check(fqdn, value)
-				}),
-			)
+				}
+			}(ctx)
+			err = acmeManager.Provide(configChan)
 			if err != nil {
-				return err
+				fmt.Println("failed to provide")
 			}
 
-			// New users will need to register
-			reg, err := client.Registration.Register(registration.RegisterOptions{TermsOfServiceAgreed: true})
-			if err != nil {
-				log.Fatal(err)
-			}
-			myUser.Registration = reg
+			fmt.Println("After provide")
 
-			request := certificate.ObtainRequest{
-				Domains: []string{"coredns-acme.xyz"},
-				Bundle:  true,
-				//PreferredChain: preferredChain,
-			}
+			tlsConf := <-configChan
+			fmt.Println(tlsConf)
 
-			certificates, err := client.Certificate.Obtain(request)
-			if err != nil {
-				log.Fatal(err)
-			}
-
-			//cert, err := x509.ParseCertificate(certificates.Certificate)
+			//err = acmeManager.ObtainCertificate("example.com")
 			//if err != nil {
-			//log.Fatal(err)
+			//log.Fatalf("Failed to obtain certificate: %v", err)
+			//}
+			//err := acmeManager.Start("coredns-acme.xyz")
+			//if err != nil {
+			//log.Error(err)
 			//}
 
-			tlsCerts := []ctls.Certificate{}
-			tlsCert := ctls.Certificate{
-				Certificate: [][]byte{certificates.Certificate},
-			}
+			//pool, err := setupCertPool(caCert)
+			//if err != nil {
+			//	log.Errorf("Failed to add the custom CA certfiicate to the pool of trusted certificates: %v, \n", err)
+			//}
 
-			tlsCerts = append(tlsCerts, tlsCert)
+			//privateKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+			//if err != nil {
+			//	log.Fatal(err)
+			//}
 
-			tlsConfig := &ctls.Config{
-				Certificates: tlsCerts,
-			}
+			//myUser := MyUser{
+			//	Email: email,
+			//	key:   privateKey,
+			//}
 
-			config.TLSConfig = tlsConfig
+			//legoConfig := lego.NewConfig(&myUser)
 
-			_, renewInterval := acme.GetCertificateRenewDurations(certificatesDuration)
-			once.Do(func() {
-				// start a loop that checks for renewals
-				go func() {
-					log.Debug("Starting certificate renewal loop in the background")
-					for {
-						time.Sleep(time.Duration(renewInterval) * time.Minute)
-						if cert.NeedsRenewal(certManager.Config) {
-							log.Info("Certificate expiring soon, initializing reload")
-							r.renew <- true
-						}
-					}
-				}()
-				caddy.RegisterEventHook("updateCert", hook)
-			})
+			//legoConfig.CADirURL = caServer
+			//legoConfig.Certificate.KeyType = certcrypto.RSA2048
+
+			//// A client facilitates communication with the CA server.
+			//client, err := lego.NewClient(legoConfig)
+			//if err != nil {
+			//	log.Fatal(err)
+			//}
+
+			//var provider challenge.Provider
+			//provider, err = dns.NewDNSChallengeProviderByName(dnsProvider)
+			//if err != nil {
+			//	return err
+			//}
+
+			//err = client.Challenge.SetDNS01Provider(provider,
+			//	dns01.CondOption(len(resolvers) > 0, dns01.AddRecursiveNameservers(resolvers)),
+			//	dns01.WrapPreCheck(func(domain, fqdn, value string, check dns01.PreCheckFunc) (bool, error) {
+			//		if delayBeforeCheck > 0 {
+			//			//log.Debug().Msgf("Delaying %d rather than validating DNS propagation now.", delayBeforeCheck)
+			//			time.Sleep(time.Duration(delayBeforeCheck))
+			//		}
+
+			//		if disablePropagationCheck {
+			//			return true, nil
+			//		}
+
+			//		return check(fqdn, value)
+			//	}),
+			//)
+			//if err != nil {
+			//	return err
+			//}
+
+			//// New users will need to register
+			//reg, err := client.Registration.Register(registration.RegisterOptions{TermsOfServiceAgreed: true})
+			//if err != nil {
+			//	log.Fatal(err)
+			//}
+			//myUser.Registration = reg
+
+			//request := certificate.ObtainRequest{
+			//	Domains: []string{"coredns-acme.xyz"},
+			//	Bundle:  true,
+			//	//PreferredChain: preferredChain,
+			//}
+
+			//certificates, err := client.Certificate.Obtain(request)
+			//if err != nil {
+			//	log.Fatal(err)
+			//}
+
+			////cert, err := x509.ParseCertificate(certificates.Certificate)
+			////if err != nil {
+			////log.Fatal(err)
+			////}
+
+			//tlsCerts := []ctls.Certificate{}
+			//tlsCert := ctls.Certificate{
+			//	Certificate: [][]byte{certificates.Certificate},
+			//}
+
+			//tlsCerts = append(tlsCerts, tlsCert)
+
+			//tlsConfig := &ctls.Config{
+			//	Certificates: tlsCerts,
+			//}
+
+			//config.TLSConfig = tlsConfig
+
+			//_, renewInterval := acme.GetCertificateRenewDurations(certificatesDuration)
+			//once.Do(func() {
+			// start a loop that checks for renewals
+			//go func() {
+			//log.Debug("Starting certificate renewal loop in the background")
+			//for {
+			//time.Sleep(time.Duration(renewInterval) * time.Minute)
+			//if cert.NeedsRenewal(certManager.Config) {
+			//log.Info("Certificate expiring soon, initializing reload")
+			//r.renew <- true
+			//}
+			//}
+			//}()
+			//caddy.RegisterEventHook("updateCert", hook)
+			//})
 			shutOnce.Do(func() {
 				c.OnFinalShutdown(func() error {
 					log.Debug("Quiting renewal checker")

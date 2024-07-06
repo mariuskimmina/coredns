@@ -63,6 +63,7 @@ func (a *Account) GetPrivateKey() crypto.PrivateKey {
 
 // GetKeyType used to determine which algo to used.
 func GetKeyType(value string) certcrypto.KeyType {
+
 	switch value {
 	case "EC256":
 		return certcrypto.EC256
@@ -81,4 +82,21 @@ func GetKeyType(value string) certcrypto.KeyType {
 		log.Infof("Unable to determine the key type value %q: falling back on %v.", value, certcrypto.RSA4096)
 		return certcrypto.RSA4096
 	}
+}
+
+func (m *Manager) initAccount() (*Account, error) {
+	if m.account == nil || len(m.account.Email) == 0 {
+		var err error
+		m.account, err = NewAccount(m.Email, m.KeyType)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	// Set the KeyType if not already defined in the account
+	if len(m.account.KeyType) == 0 {
+		m.account.KeyType = GetKeyType(m.KeyType)
+	}
+
+	return m.account, nil
 }

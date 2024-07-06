@@ -10,6 +10,6 @@ type StoredData struct {
 type Store interface {
 	GetAccount(resolverName string) (*Account, error)
 	SaveAccount(resolverName string, account *Account) error
-	GetCertificate(resolverName string) (*CertAndStore, error)
-	SaveCertificate(resolverName string, certificates *CertAndStore) error
+	GetCertificates(resolverName string) ([]*CertAndStore, error)
+	SaveCertificates(resolverName string, certificates []*CertAndStore) error
 }
