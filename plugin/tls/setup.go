@@ -139,7 +139,6 @@ func parseTLS(c *caddy.Controller) error {
 					return c.Errf("unknown argument to acme '%s'", token)
 				}
 			}
-
 			fileStore := acme.NewLocalStore("storagefile")
 
 			acmeManager := acme.AcmeManager{
@@ -187,6 +186,11 @@ func parseTLS(c *caddy.Controller) error {
 			}
 
 			fmt.Println("After provide")
+
+			acmeTlsConfig := acme.TLSConfiguration{}
+			acmeManager.ListenConfiguration(acmeTlsConfig)
+
+			fmt.Println("after listenConfiguration")
 
 			tlsConf := <-configChan
 			fmt.Println(tlsConf)
