@@ -140,7 +140,6 @@ func parseTLS(c *caddy.Controller) error {
 					return nil
 				})
 			})
-
 		} else {
 			if len(args) < 2 || len(args) > 3 {
 				return plugin.Error("tls", c.ArgErr())
