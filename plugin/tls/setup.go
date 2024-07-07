@@ -53,6 +53,7 @@ func parseTLS(c *caddy.Controller) error {
 			caServer := certmagic.LetsEncryptStagingCA
 			var caCert string
 			checkInterval := 60
+			certPath := "./.tls/"
 
 			for c.NextBlock() {
 				token := c.Val()
@@ -84,18 +85,18 @@ func parseTLS(c *caddy.Controller) error {
 						return plugin.Error("tls", c.Errf("Too many arguments to dnsProvider"))
 					}
 					dnsProvider = dnsProviderArgs[0]
+				case "certPath":
+					certPathArgs := c.RemainingArgs()
+					if len(certPathArgs) > 1 {
+						return plugin.Error("tls", c.Errf("Too many arguments to certPath"))
+					}
+					certPath = certPathArgs[0]
 				case "caServer":
 					caServerArgs := c.RemainingArgs()
 					if len(caServerArgs) > 1 {
 						return plugin.Error("tls", c.Errf("Too many arguments to caServer"))
 					}
 					caServer = caServerArgs[0]
-				case "certificatesDuration":
-					certificatesDurationArgs := c.RemainingArgs()
-					if len(certificatesDurationArgs) > 1 {
-						return plugin.Error("tls", c.Errf("Too many arguments to certificatesDurationArgs"))
-					}
-
 				default:
 					return c.Errf("unknown argument to acme '%s'", token)
 				}
@@ -103,7 +104,6 @@ func parseTLS(c *caddy.Controller) error {
 
 			dnsSolver := createDNSSolver(dnsProvider)
 			pool, err := setupCertPool(caCert)
-			certPath := "./.tls/"
 
 			certmagicConfig := newConfig(certPath)
 			certmagicIssuer := newIssuer(certmagicConfig, caServer, email, pool, dnsSolver)
@@ -118,7 +118,6 @@ func parseTLS(c *caddy.Controller) error {
 			config.TLSConfig = tlsconf
 
 			once.Do(func() {
-				// start a loop that checks for renewals
 				go func() {
 					log.Debug("Starting certificate renewal loop in the background")
 					for {
