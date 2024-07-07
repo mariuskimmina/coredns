@@ -104,6 +104,9 @@ func parseTLS(c *caddy.Controller) error {
 
 			dnsSolver := createDNSSolver(dnsProvider)
 			pool, err := setupCertPool(caCert)
+			if err != nil {
+				log.Errorf("Failed to setup certificate pool: %v\n", err)
+			}
 
 			certmagicConfig := newConfig(certPath)
 			certmagicIssuer := newIssuer(certmagicConfig, caServer, email, pool, dnsSolver)
