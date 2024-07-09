@@ -11,6 +11,7 @@ import (
 	"github.com/libdns/ionos"
 	"github.com/libdns/namecheap"
 	"github.com/libdns/netlify"
+	"github.com/libdns/route53"
 )
 
 func createDNSSolver(provider string) *certmagic.DNS01Solver {
@@ -28,7 +29,7 @@ func createDNSSolver(provider string) *certmagic.DNS01Solver {
 		dnsSolver = &certmagic.DNS01Solver{
 			DNSManager: certmagic.DNSManager{
 				DNSProvider: &cloudflare.Provider{
-					APIToken: os.Getenv(""),
+					APIToken: os.Getenv("CLOUDFLARE_AUTH_TOKEN"),
 				},
 			},
 		}
@@ -36,7 +37,7 @@ func createDNSSolver(provider string) *certmagic.DNS01Solver {
 		dnsSolver = &certmagic.DNS01Solver{
 			DNSManager: certmagic.DNSManager{
 				DNSProvider: &hetzner.Provider{
-					AuthAPIToken: os.Getenv(""),
+					AuthAPIToken: os.Getenv("HETZNER_AUTH_TOKEN"),
 				},
 			},
 		}
@@ -44,7 +45,7 @@ func createDNSSolver(provider string) *certmagic.DNS01Solver {
 		dnsSolver = &certmagic.DNS01Solver{
 			DNSManager: certmagic.DNSManager{
 				DNSProvider: &netlify.Provider{
-					PersonalAccessToken: os.Getenv(""),
+					PersonalAccessToken: os.Getenv("NETLIFY_AUTH_TOKEN"),
 				},
 			},
 		}
@@ -52,8 +53,10 @@ func createDNSSolver(provider string) *certmagic.DNS01Solver {
 		dnsSolver = &certmagic.DNS01Solver{
 			DNSManager: certmagic.DNSManager{
 				DNSProvider: &namecheap.Provider{
-					APIKey:      os.Getenv(""),
-					APIEndpoint: os.Getenv(""),
+					User:        os.Getenv("NAMECHEAP_USER"),
+					ClientIP:    os.Getenv("NAMECHEAP_CLIENT_IP"),
+					APIKey:      os.Getenv("NAMECHEAP_API_KEY"),
+					APIEndpoint: os.Getenv("NAMECHEAP_API_ENDPOINT"),
 				},
 			},
 		}
@@ -61,7 +64,7 @@ func createDNSSolver(provider string) *certmagic.DNS01Solver {
 		dnsSolver = &certmagic.DNS01Solver{
 			DNSManager: certmagic.DNSManager{
 				DNSProvider: &ionos.Provider{
-					AuthAPIToken: os.Getenv(""),
+					AuthAPIToken: os.Getenv("IONOS_AUTH_TOKEN"),
 				},
 			},
 		}
@@ -69,8 +72,18 @@ func createDNSSolver(provider string) *certmagic.DNS01Solver {
 		dnsSolver = &certmagic.DNS01Solver{
 			DNSManager: certmagic.DNSManager{
 				DNSProvider: &duckdns.Provider{
-					APIToken:       os.Getenv(""),
-					OverrideDomain: os.Getenv(""),
+					APIToken:       os.Getenv("DUCKDNS_TOKEN"),
+					OverrideDomain: os.Getenv("DUCKDNS_OVERRIDE_DOMAIN"),
+				},
+			},
+		}
+	case "route53":
+		dnsSolver = &certmagic.DNS01Solver{
+			DNSManager: certmagic.DNSManager{
+				DNSProvider: &route53.Provider{
+					Region:      os.Getenv("AWS_REGION"),
+					Profile:     os.Getenv("AWS_PROFILE"),
+					AccessKeyId: os.Getenv("AWS_ACCESS_KEY_ID"),
 				},
 			},
 		}
